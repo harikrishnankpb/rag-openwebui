@@ -3,7 +3,8 @@ const { extractContent } = require('../utils/fileExtractor');
 const vectorDB = require('../utils/vectordb');
 const fs = require('fs').promises;
 const path = require('path');
-
+const { v4: uuidv4 } = require('uuid');
+const { splitText } = require('../utils/textSplitter')
 
 /**
  * Upload a file and extract content if possible
@@ -23,10 +24,13 @@ exports.uploadFile = async (req, res) => {
       // Continue with file upload even if extraction fails
     }
 
-    // Create file record in database
+    const chunks = await splitText(extractedText)
 
+
+    // Create file record in database
+    const uuid = uuidv4()
     const file = new File({
-      filename: req.file.filename,
+      filename: uuid,
       originalname: req.file.originalname,
       path: req.file.path,
       mimetype: req.file.mimetype,
@@ -38,19 +42,32 @@ exports.uploadFile = async (req, res) => {
 
     // Store extracted content in vector database if available
     if (extractedText) {
+
+
       try {
-        await vectorDB.storeVector(file._id.toString(), extractedText, {
-          filename: file.originalname,
-          mimetype: file.mimetype,
-          fileId: file._id.toString()
-        });
+        for (const [index, chunk] of chunks.entries()) {
+          const fileId = file._id.toString();
+          const vectorId = `${fileId}_${index}`;
+          await vectorDB.storeVector(vectorId, chunk, {
+            fileId: fileId,
+            filename: file.originalname,
+            mimetype: file.mimetype,
+            chunkIndex: index,
+            totalChunks: chunks.length
+          });
+        }
+        // await vectorDB.storeVector(file._id.toString(), extractedText, {
+        //   filename: file.originalname,
+        //   mimetype: file.mimetype,
+        //   fileId: file._id.toString()
+        // });
       } catch (error) {
         console.error('Error storing vector in ChromaDB:', error);
         // Continue even if vector storage fails
       }
     }
 
-    res.status(201).json({ 
+    res.status(201).json({
       message: 'File uploaded successfully',
       file: {
         id: file._id,
@@ -140,15 +157,15 @@ exports.getFileContent = async (req, res) => {
     if (!file) {
       return res.status(404).json({ error: 'File not found' });
     }
-    
+
     if (!file.extractedContent) {
       return res.status(404).json({ error: 'No content extracted from this file' });
     }
-    
-    res.status(200).json({ 
+
+    res.status(200).json({
       fileId: file._id,
       filename: file.originalname,
-      content: file.extractedContent 
+      content: file.extractedContent
     });
   } catch (error) {
     console.error('Error getting file content:', error);
@@ -162,14 +179,14 @@ exports.getFileContent = async (req, res) => {
 exports.searchContent = async (req, res) => {
   try {
     const { query } = req.query;
-    
+
     if (!query) {
       return res.status(400).json({ error: 'Search query is required' });
     }
-    
+
     // Search for similar content in vector database
     const results = await vectorDB.search(query, 5);
-    
+
     // Fetch additional file details from MongoDB
     const enhancedResults = await Promise.all(
       results.map(async (result) => {
@@ -190,9 +207,9 @@ exports.searchContent = async (req, res) => {
         }
       })
     );
-    
-    res.status(200).json({ 
-      query, 
+
+    res.status(200).json({
+      query,
       results: enhancedResults
     });
   } catch (error) {

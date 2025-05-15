@@ -25,11 +25,11 @@ class RAGService {
     try {
       // Get relevant documents from vector DB
       const results = await this.vectorDB.search(query, options.maxResults || 3);
-      
+
       // Extract relevant context
       let context = '';
       const relevantDocs = [];
-      
+
       if (results && results.length > 0) {
         context = results.map((doc, index) => {
           relevantDocs.push({
@@ -38,20 +38,20 @@ class RAGService {
             metadata: doc.metadata,
             similarity: doc.similarity
           });
-          
+
           return `Document ${index + 1}:\n${doc.content}`;
         }).join('\n\n');
       }
-      
+
       // Build prompt with context
       const prompt = this._buildPromptWithContext(query, context);
-      
+
       // Generate response using LLM
       const response = await this.llmClient.generate(prompt, {
         temperature: options.temperature || 0.7,
         max_tokens: options.maxTokens || 1024
       });
-      
+
       return {
         query,
         response,
@@ -62,7 +62,7 @@ class RAGService {
       throw error;
     }
   }
-  
+
   /**
    * Enhanced chat with RAG
    * Integrates document context with chat history
@@ -74,23 +74,23 @@ class RAGService {
   async chat(messages, options = {}) {
     try {
       // Extract the latest user query
-      const lastUserMessage = [...messages].reverse().find(msg => 
+      const lastUserMessage = [...messages].reverse().find(msg =>
         msg.role === 'user' || msg.role === 'human'
       );
-      
+
       if (!lastUserMessage) {
         throw new Error('No user message found in chat history');
       }
-      
+
       const query = lastUserMessage.content;
-      
+
       // Get relevant documents
       const results = await this.vectorDB.search(query, options.maxResults || 3);
       const relevantDocs = [];
-      
+
       // Create a system message with context
       let contextMessage = null;
-      
+
       if (results && results.length > 0) {
         const context = results.map((doc, index) => {
           relevantDocs.push({
@@ -99,30 +99,46 @@ class RAGService {
             metadata: doc.metadata,
             similarity: doc.similarity
           });
-          
+
           return `Document ${index + 1}:\n${doc.content}`;
         }).join('\n\n');
-        
+
         contextMessage = {
           role: 'system',
-          content: `You have access to the following relevant documents. Use them to provide accurate answers:\n\n${context}`
+          content: `You have access to the following relevant documents. Use them to provide accurate, factual answers to the user's question.
+
+                    - Only output the final answer.
+                    - Do not show your thought process.
+                    - Do NOT include any reasoning, scratchpad, or tags such as <think>, <reasoning>, or similar.
+                    - Do not use any tags or formatting except for the answer itself.
+                    - Do NOT repeat or summarize the documents unless directly answering the question.
+                    - If the answer is not found in the documents, say "I don't know based on the provided documents."
+
+                    Relevant documents:
+                    ${context}`
         };
       }
-      
+
       // Prepare messages for the chat
-      const enhancedMessages = contextMessage ? 
-        [contextMessage, ...messages] : 
+      const enhancedMessages = contextMessage ?
+        [contextMessage, ...messages] :
         messages;
-      
+
       // Generate chat response
       const response = await this.llmClient.chat(enhancedMessages, {
         temperature: options.temperature || 0.7,
         max_tokens: options.maxTokens || 1024
       });
-      
+
+      let contentOnly = response.content;
+      //If content starts with <think> remove it
+      if (contentOnly.startsWith('<think>')) {
+        contentOnly = removeThinkSection(contentOnly);
+      }
+
       return {
         query,
-        response: response.content || response,
+        response: contentOnly || response,
         relevantDocs
       };
     } catch (error) {
@@ -130,7 +146,8 @@ class RAGService {
       throw error;
     }
   }
-  
+
+
   /**
    * Build a prompt with context from retrieved documents
    * @private
@@ -146,11 +163,14 @@ ${query}
 
 If the documents don't contain relevant information to answer the query, say so and provide a general response.
 `;
-    
+
     return promptTemplate.trim();
   }
 }
 
+const removeThinkSection = (text) => {
+  return text.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+}
 // Export singleton
 const ragService = new RAGService();
 module.exports = ragService; 
