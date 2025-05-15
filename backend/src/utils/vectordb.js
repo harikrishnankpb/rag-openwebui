@@ -124,6 +124,56 @@ class ChromaDBClient {
       throw error;
     }
   }
+
+  /**
+   * Delete a vector by hash
+   * @param {string} hash - Hash of the document to delete
+   */
+  async deleteVectorByHash(hash) {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    try {
+      await this.collection.delete({
+        where:{
+          metadata: {
+            hash: hash
+          }
+        }
+      });
+      
+      console.log(`Deleted vector for document ${hash} from ChromaDB`);
+      return { hash, status: 'success' };
+    } catch (error) {
+      console.error('Error deleting vector:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a vector by file ID
+   * @param {string} fileId - ID of the file to delete
+   */
+  async deleteVectorByFileId(fileId) {
+    if (!this.isConnected) {
+      await this.connect();
+    }
+    
+    try {
+      const result = await this.collection.delete({
+        where:{
+            fileId: fileId
+        }
+      });
+      
+      console.log(`Deleted vector for document ${fileId} from ChromaDB`);
+      return { fileId, status: 'success' };
+    } catch (error) {
+      console.error('Error deleting vector:', error);
+      throw error;
+    }
+  }
 }
 
 // Export a singleton instance

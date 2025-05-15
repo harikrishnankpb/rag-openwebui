@@ -28,6 +28,10 @@ const fileSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  },
+  hash:{
+    type: String,
+    required: true
   }
 });
 

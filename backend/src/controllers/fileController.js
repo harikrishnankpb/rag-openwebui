@@ -5,6 +5,7 @@ const fs = require('fs').promises;
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { splitText } = require('../utils/textSplitter')
+const crypto = require('crypto');
 
 /**
  * Upload a file and extract content if possible
@@ -24,18 +25,27 @@ exports.uploadFile = async (req, res) => {
       // Continue with file upload even if extraction fails
     }
 
+    const hash = crypto.createHash('sha256').update(extractedText).digest('hex');
+
+
+
     const chunks = await splitText(extractedText)
 
 
     // Create file record in database
     const uuid = uuidv4()
+    const isDuplicate = await File.findOne({ hash: hash })
+    if (isDuplicate) {
+      return res.status(400).json({ error: 'File already exists' });
+    }
     const file = new File({
       filename: uuid,
       originalname: req.file.originalname,
       path: req.file.path,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      extractedContent: extractedText
+      extractedContent: extractedText,
+      hash: hash
     });
 
     await file.save();
@@ -53,7 +63,8 @@ exports.uploadFile = async (req, res) => {
             filename: file.originalname,
             mimetype: file.mimetype,
             chunkIndex: index,
-            totalChunks: chunks.length
+            totalChunks: chunks.length,
+            hash: hash
           });
         }
         // await vectorDB.storeVector(file._id.toString(), extractedText, {
@@ -132,7 +143,7 @@ exports.deleteFile = async (req, res) => {
     // Delete from vector database if content was extracted
     if (file.extractedContent) {
       try {
-        await vectorDB.deleteVector(file._id.toString());
+        await vectorDB.deleteVectorByFileId(file._id.toString());
       } catch (error) {
         console.error('Error deleting vector from ChromaDB:', error);
         // Continue with deletion even if vector deletion fails
