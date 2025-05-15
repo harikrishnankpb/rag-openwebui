@@ -1,0 +1,42 @@
+{
+  "name": "rag-openwebui",
+  "version": "1.0.0",
+  "description": "RAG Chat Application with Ollama and ChromaDB",
+  "main": "index.js",
+  "scripts": {
+    "backend:install": "cd backend && npm install",
+    "backend:dev": "cd backend && npm run dev",
+    "backend:start": "cd backend && npm start",
+    "frontend:install": "cd frontend && npm install",
+    "frontend:dev": "cd frontend && npm start",
+    "frontend:build": "cd frontend && npm run build",
+    "install:all": "npm run backend:install && npm run frontend:install",
+    "dev:full": "concurrently \"npm run backend:dev\" \"npm run frontend:dev\"",
+    "start:full": "concurrently \"npm run backend:start\" \"npm run frontend:dev\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "file-management",
+    "text-extraction",
+    "rag",
+    "node"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "chromadb": "^1.8.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "mammoth": "^1.6.0",
+    "mongoose": "^7.5.0",
+    "multer": "^1.4.5-lts.1",
+    "node-fetch": "^2.7.0",
+    "ollama": "^0.4.4",
+    "pdf-parse": "^1.1.1",
+    "pdfjs-dist": "^3.10.111"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
