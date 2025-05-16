@@ -31,3 +31,6 @@ yarn-error.log*
 *.swp
 *.swo
 .DS_Store 
+
+# ChromaDB data
+chroma_data/
