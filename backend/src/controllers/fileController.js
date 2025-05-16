@@ -6,7 +6,7 @@ const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const { splitText } = require('../utils/textSplitter')
 const crypto = require('crypto');
-
+// const llmClient = require('../utils/llmClient');
 /**
  * Upload a file and extract content if possible
  */
@@ -56,6 +56,7 @@ exports.uploadFile = async (req, res) => {
 
       try {
         for (const [index, chunk] of chunks.entries()) {
+          // const embedding = await llmClient.generateEmbeddings(chunk);
           const fileId = file._id.toString();
           const vectorId = `${fileId}_${index}`;
           await vectorDB.storeVector(vectorId, chunk, {

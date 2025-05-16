@@ -8,6 +8,7 @@ class OllamaClient {
   constructor(options = {}) {
     this.baseUrl = options.baseUrl || 'http://localhost:11434';
     this.model = options.model || 'deepseek-r1';
+    this.embeddingModel = options.embeddingModel || 'mxbai-embed-large';
     this.defaultParams = {
       temperature: options.temperature || 0.7,
       max_tokens: options.maxTokens || 1024,
@@ -91,12 +92,12 @@ class OllamaClient {
   async listModels() {
     try {
       const response = await fetch(`${this.baseUrl}/api/tags`);
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(`Ollama API error: ${errorData.error || response.statusText}`);
       }
-      
+
       const data = await response.json();
       return data.models || [];
     } catch (error) {
@@ -104,12 +105,41 @@ class OllamaClient {
       throw error;
     }
   }
+  //TODO Not using this function anymore
+  async generateEmbeddings(text) {
+    try {
+      const response = await fetch(`${this.baseUrl}/api/embed`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: this.embeddingModel,
+          input: text,
+          ...this.defaultParams,
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Ollama API error: ${errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.embeddings;
+    } catch (error) {
+      console.error('Error generating embeddings with Ollama:', error);
+      throw error;
+    }
+  }
+
 }
 
 // Export a singleton instance
 const ollamaClient = new OllamaClient({
   baseUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
   model: process.env.OLLAMA_MODEL || 'deepseek-r1',
+  embeddingModel: process.env.OLLAMA_EMBEDDING_MODEL || 'mxbai-embed-large',
   temperature: process.env.OLLAMA_TEMPERATURE || 0.7,
   maxTokens: process.env.OLLAMA_MAX_TOKENS || 2048
 });

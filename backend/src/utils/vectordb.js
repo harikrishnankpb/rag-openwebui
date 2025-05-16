@@ -3,7 +3,7 @@
  * 
  * This file provides functions for integrating ChromaDB as a vector database.
  */
-const { ChromaClient, Collection } = require('chromadb');
+const { ChromaClient, Collection, OllamaEmbeddingFunction } = require('chromadb');
 const config = require('../config/config');
 
 class ChromaDBClient {
@@ -15,6 +15,10 @@ class ChromaDBClient {
     });
     this.collection = null;
     this.collectionName = options.collectionName || 'documents';
+    this.OllamaEmbeddingFunction = options.OllamaEmbeddingFunction || new OllamaEmbeddingFunction({
+      model: process.env.OLLAMA_EMBEDDING_MODEL || 'mxbai-embed-large',
+      apiKey: process.env.OLLAMA_API_KEY
+    });
   }
 
   /**
@@ -27,7 +31,7 @@ class ChromaDBClient {
         name: this.collectionName,
         metadata: { description: "Document storage for RAG application" }
       });
-      
+
       this.isConnected = true;
       console.log(`ChromaDB connected, collection: ${this.collectionName}`);
       return true;
@@ -48,14 +52,19 @@ class ChromaDBClient {
     if (!this.isConnected) {
       await this.connect();
     }
-    
+
     try {
       await this.collection.add({
         ids: [id],
         documents: [text],
-        metadatas: [metadata]
+        metadatas: [metadata],
+        // embeddings: embedding
+        //   ? Array.isArray(embedding[0])
+        //     ? embedding
+        //     : [embedding]
+        //   : undefined
       });
-      
+
       console.log(`Stored vector for document ${id} in ChromaDB`);
       return { id, status: 'success' };
     } catch (error) {
@@ -74,20 +83,20 @@ class ChromaDBClient {
     if (!this.isConnected) {
       await this.connect();
     }
-    
+
     try {
       const results = await this.collection.query({
         queryTexts: [text],
         nResults: limit
       });
-      
+
       // Format results for easier consumption
       if (results && results.documents && results.documents.length > 0) {
         const documents = results.documents[0] || [];
         const ids = results.ids[0] || [];
         const metadatas = results.metadatas[0] || [];
         const distances = results.distances ? results.distances[0] : [];
-        
+
         return documents.map((doc, index) => ({
           id: ids[index],
           content: doc,
@@ -95,7 +104,7 @@ class ChromaDBClient {
           similarity: distances ? 1 - distances[index] : null
         }));
       }
-      
+
       return [];
     } catch (error) {
       console.error('Error searching vectors:', error);
@@ -111,12 +120,12 @@ class ChromaDBClient {
     if (!this.isConnected) {
       await this.connect();
     }
-    
+
     try {
       await this.collection.delete({
         ids: [id]
       });
-      
+
       console.log(`Deleted vector for document ${id} from ChromaDB`);
       return { id, status: 'success' };
     } catch (error) {
@@ -133,16 +142,16 @@ class ChromaDBClient {
     if (!this.isConnected) {
       await this.connect();
     }
-    
+
     try {
       await this.collection.delete({
-        where:{
+        where: {
           metadata: {
             hash: hash
           }
         }
       });
-      
+
       console.log(`Deleted vector for document ${hash} from ChromaDB`);
       return { hash, status: 'success' };
     } catch (error) {
@@ -159,14 +168,14 @@ class ChromaDBClient {
     if (!this.isConnected) {
       await this.connect();
     }
-    
+
     try {
       const result = await this.collection.delete({
-        where:{
-            fileId: fileId
+        where: {
+          fileId: fileId
         }
       });
-      
+
       console.log(`Deleted vector for document ${fileId} from ChromaDB`);
       return { fileId, status: 'success' };
     } catch (error) {
@@ -179,7 +188,8 @@ class ChromaDBClient {
 // Export a singleton instance
 const vectorDBClient = new ChromaDBClient({
   path: process.env.CHROMA_URL || 'http://localhost:8000',
-  collectionName: process.env.CHROMA_COLLECTION || 'documents'
+  collectionName: process.env.CHROMA_COLLECTION || 'documents',
+  OllamaEmbeddingFunction
 });
 
 module.exports = vectorDBClient; 
