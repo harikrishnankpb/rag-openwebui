@@ -49,7 +49,8 @@ const FilesPage = () => {
       }
     } catch (err) {
       console.error('Error uploading file:', err);
-      setUploadError('Failed to upload file. Please try again.');
+      const errorMessage = err.response?.data?.error || 'Failed to upload file. Please try again.';
+      setUploadError(errorMessage);
     }
   };
 
